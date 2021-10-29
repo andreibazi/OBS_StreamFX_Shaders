@@ -1,0 +1,99 @@
+// vMix Style Cropping Shader made for OBS w/ added feathering
+// Bazi 2021
+//------------------------------------------------------------------------------
+// Uniforms
+//------------------------------------------------------------------------------
+
+uniform float4x4 ViewProj<
+	bool automatic = true;
+>;
+
+uniform texture2d InputA<
+	bool automatic = true;
+>;
+
+uniform float crop_x_l<
+	bool visible = true;
+	string name = "Crop X Left-Side";
+	string field_type = "slider";
+	float minimum = 0.;
+	float maximum = 1.;
+	float step = .001;
+> = 0.1;
+
+uniform float crop_x_r<
+	bool visible = true;
+	string name = "Crop X Right-Side";
+	string field_type = "slider";
+	float minimum = 0.;
+	float maximum = 1.;
+	float step = .001;
+> = 0.1;
+
+uniform float crop_y_top<
+	bool visible = true;
+	string name = "Crop Y Top";
+	string field_type = "slider";
+	float minimum = 0.;
+	float maximum = 1.;
+	float step = .001;
+> = 0.1;
+
+uniform float crop_y_bottom<
+	bool visible = true;
+	string name = "Crop Y Bottom";
+	string field_type = "slider";
+	float minimum = 0.;
+	float maximum = 1.;
+	float step = .001;
+> = 0.1;
+
+uniform float featherAmount<
+	bool visible = true;
+	string name = "Feather Amount";
+	string field_type = "slider";
+	float minimum = 0.;
+	float maximum = 1.;
+	float step = .001;
+> = 0.1;
+
+uniform float aspectRatio<
+	bool visible = false;
+> = 1.77;
+
+//------------------------------------------------------------------------------
+// Effect
+//------------------------------------------------------------------------------
+
+sampler_state linear_sampler {
+	Filter    = Linear;
+	AddressU  = Repeat;
+	AddressV  = Repeat;
+};
+
+struct VertFragData {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertFragData VSDefault(VertFragData vtx) {
+	vtx.pos = mul(float4(vtx.pos.xyz, 1.0), ViewProj);
+	return vtx;
+}
+
+float4 PSVersion1(VertFragData vtx) : TARGET {
+	float a_t = 1.0 - smoothstep(1.0 - crop_y_bottom, 1.0 - crop_y_bottom+featherAmount, vtx.uv.y);
+    float a_r = 1.0 - smoothstep(1.0 - crop_x_r-featherAmount/aspectRatio, 1.0 - crop_x_r, vtx.uv.x);
+    float a_b = smoothstep(crop_y_top-featherAmount, crop_y_top, vtx.uv.y);
+    float a_l = smoothstep(crop_x_l,crop_x_l+featherAmount/aspectRatio, vtx.uv.x);
+	return InputA.Sample(linear_sampler, vtx.uv) * a_l * a_r * a_t * a_b;
+};
+
+technique RectangularMask
+{
+	pass
+	{
+		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSVersion1(vtx);
+	};
+};

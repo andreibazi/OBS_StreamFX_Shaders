@@ -1,4 +1,4 @@
-// vMix Style Cropping Shader made for OBS w/ added feathering
+// vMix Style Cropping Shader made for OBS w/ added feathering and auto centering
 // Bazi 2021
 //------------------------------------------------------------------------------
 // Uniforms
@@ -81,12 +81,18 @@ VertFragData VSDefault(VertFragData vtx) {
 	return vtx;
 }
 
+VertFragData VSCentering(VertFragData vtx) {
+	vtx.pos = mul(float4(vtx.pos.xyz, 1.0), ViewProj);
+    vtx.pos.xyz += float3(crop_x_r - crop_x_l, crop_y_top - crop_y_bottom, 0.0);
+	return vtx;
+}
+
 float4 PSVersion1(VertFragData vtx) : TARGET {
 	float a_t = 1.0 - smoothstep(1.0 - crop_y_bottom, 1.0 - crop_y_bottom+featherAmount, vtx.uv.y);
     float a_r = 1.0 - smoothstep(1.0 - crop_x_r-featherAmount/aspectRatio, 1.0 - crop_x_r, vtx.uv.x);
     float a_b = smoothstep(crop_y_top-featherAmount, crop_y_top, vtx.uv.y);
     float a_l = smoothstep(crop_x_l,crop_x_l+featherAmount/aspectRatio, vtx.uv.x);
-	return InputA.Sample(linear_sampler, vtx.uv) * a_l * a_r * a_t * a_b;
+    return InputA.Sample(linear_sampler, vtx.uv) * a_l * a_r * a_t * a_b;
 };
 
 technique RectangularMask
@@ -94,6 +100,15 @@ technique RectangularMask
 	pass
 	{
 		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSVersion1(vtx);
+	};
+};
+
+technique RectangularMaskAutoCentering
+{
+	pass
+	{
+		vertex_shader = VSCentering(vtx);
 		pixel_shader  = PSVersion1(vtx);
 	};
 };
